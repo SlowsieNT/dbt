@@ -1,4 +1,5 @@
-# dbt
+# DBT Enhanced
+![Visitor count](https://shields-io-visitor-counter.herokuapp.com/badge?page=slowsient.dbt)
 ## This is free and unencumbered software released into the public domain.<br>
 Dynamic dbtools framework.<br>
 ```php
