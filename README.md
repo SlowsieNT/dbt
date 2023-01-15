@@ -1,6 +1,6 @@
 # DBT Enhanced
 ## This is free and unencumbered software released into the public domain.<br>
-Dynamic dbtools framework.<br>
+Dynamic dbtools framework, easy to use, supports SQLite and MySQL.<br>
 ![Visitor count](https://shields-io-visitor-counter.herokuapp.com/badge?page=slowsient.dbt)<br>
 ```php
 <?php
