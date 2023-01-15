@@ -51,8 +51,9 @@ class DBTTable {
 		return DBT::GetTableInfo($tInfo[0], $tInfo[1], $tInfo[2]);
 	}
 	// Returns array containing column names in database table.
-	public static function GetTableColumnNames() {
-		$tInfo = self::tt(); // dbtype=0, dbindex=1, tablename=2, tableKey=3, tableCols=4
+	public static function GetTableColumnNames(&$tInfo = null) {
+		if (null == $tInfo)
+			$tInfo = self::tt(); // dbtype=0, dbindex=1, tablename=2, tableKey=3, tableCols=4
 		$r = array();
 		$dbtype = $tInfo[0];
 		// print_r($tInfo);
@@ -102,6 +103,8 @@ class DBTTable {
 		if (null === $aFetchType) $aFetchType = 0;
 		if (null === $aFetchMode) $aFetchMode = PDO::FETCH_OBJ;
 		$tInfo = self::tt(); // dbtype=0, dbindex=1, tablename=2, tableKey=3, tableCols=4
+		if ("*" == $aSelector)
+			$aSelector = implode(",", self::GetTableColumnNames());
 		$sql = "SELECT $aSelector from $tInfo[2] $aFollowedBy";
 		$pst = self::Execute($sql, $aUPV, $tInfo);
 		if (0 === $aFetchType)
@@ -115,10 +118,13 @@ class DBTTable {
 	// Returns number, or false
 	// If any argument is null then default value is used.
 	public static function SelectC($aSelector = "count(*) as c", $aFollowedBy = "WHERE 1", $aUPV = array(), $aFetchType = 0) {
-		if (null === $aSelector) $aSelector = "count(*) as c";
+		$selDef = "count(*) as c";
+		if (null === $aSelector) $aSelector = $selDef;
 		if (null === $aFollowedBy) $aFollowedBy = "WHERE 1";
 		if (null === $aUPV) $aUPV = array();
 		if (null === $aFetchType) $aFetchType = 0;
+		if ($selDef == $aSelector)
+			$aSelector = "count(".implode(",", self::GetTableColumnNames()).") as c";
 		$tInfo = self::tt(); // dbtype=0, dbindex=1, tablename=2, tableKey=3, tableCols=4
 		$sql = "SELECT $aSelector from $tInfo[2] $aFollowedBy";
 		$pst = self::Execute($sql, $aUPV, $tInfo);
