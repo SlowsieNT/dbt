@@ -8,7 +8,8 @@ class DBT {
 	// Returns int
 	public static function NewMySQL($aName="", $aUser="root", $aPass="", $aHost="localhost", $aOptions=null) {
 		if (null === $aUser) $aUser = "root";
-		return self::NewDsnConnect(1, "mysql:host=$aHost;dbname=$aName;charset=utf8mb4", $aUser, $aPass, $aOptions);
+		$dbi = self::NewDsnConnect(1, "mysql:host=$aHost;dbname=$aName;charset=utf8mb4", $aUser, $aPass, $aOptions);
+		return $dbi;
 	}
 	// Returns int
 	public static function NewSQLite($aFilename="", $aUseWAL=true) {
