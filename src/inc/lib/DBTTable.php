@@ -1,5 +1,9 @@
 <?php
 class DBTTable {
+	// MF = meta file
+	private const TABLES_MF_DIR = "inc/db/tables";
+	private const TABLES_MF_SUFFIX = "_meta.json";
+	private const TABLES_MF_JSONFLAGS = 128;
 	static $RegisteredClasses = array();
 	// Never, ever use these:
 	static $DBIndex = 0, $Name = "", $Key = "id";
@@ -9,7 +13,7 @@ class DBTTable {
 	// Function tt() is used to auto-register the class
 	// thus tt() is required to be called almost everywhere!
 	public static function tt() {
-		self::Register();
+		self::TTRegister();
 		$CCName = get_called_class();
 		return self::$RegisteredClasses[$CCName];
 	}
@@ -18,7 +22,31 @@ class DBTTable {
 		// $data[dbtype=0, dbindex=1, tablename=2, tableKey=3, tableCols=4]
 		self::$RegisteredClasses[$CCName][$aIdx] = $aVal;
 	}
-	public static function Register() {
+	public static function TTGetMF(&$aCCName = null) {
+		if (null == $aCCName)
+			$aCCName = get_called_class();
+		if (!is_dir(self::TABLES_MF_DIR))
+			mkdir(self::TABLES_MF_DIR, 0777, 1);
+		return self::TABLES_MF_DIR . "/" . str_replace("\\", "-", $aCCName) . self::TABLES_MF_SUFFIX;
+	}
+	public static function TTDeleteMF(&$aCCName = null, &$aTbInfoFilename = null) {
+		if (null == $aCCName)
+			$aCCName = get_called_class();
+		if (null == $aTbInfoFilename)
+			$aTbInfoFilename = self::TTGetMF($aCCName);
+		unlink($aTbInfoFilename);
+	}
+	public static function TTUpdateMF(&$aTbInfo = null, &$aCCName = null, &$aTbInfoFilename = null) {
+		if (null == $aTbInfo)
+			$aTbInfo = self::tt();
+		if (null == $aCCName)
+			$aCCName = get_called_class();
+		if (null == $aTbInfoFilename)
+			$aTbInfoFilename = self::TTGetMF($aCCName);
+		$aTbInfo[4] = self::GetTableColumns(0, $aTbInfo);
+		file_put_contents($aTbInfoFilename, json_encode($aTbInfo, self::TABLES_MF_JSONFLAGS));
+	}
+	public static function TTRegister() {
 		$CCName = get_called_class();
 		if (isset(self::$RegisteredClasses[$CCName]))
 			return;
@@ -35,7 +63,12 @@ class DBTTable {
 		// $data[dbtype=0, dbindex=1, tablename=2, tableKey=3, tableCols=4]
 		$data = array($dbtype, $DBIndex, $eti[1], $eti[2], array());
 		// Assign table columns
-		$data[4] = self::GetTableColumns(0, $data);
+		$tInfoFilename = self::TTGetMF($CCName);
+		if (file_exists($tInfoFilename)) {
+			$f = json_decode(file_get_contents($tInfoFilename));
+			$data[4] = $f[4];
+		} else
+			self::TTUpdateMF($data, $CCName, $tInfoFilename);
 		self::$RegisteredClasses[$CCName] = $data;
 	}
 	// Retrieve columns from database table, used for dynamic data handling
@@ -58,21 +91,18 @@ class DBTTable {
 		$dbtype = $tInfo[0];
 		// print_r($tInfo);
 		foreach ($tInfo[4] as $col) {
-			if (0 === $dbtype) {
-				// SQLite?
-				// $col[cid:int, name:str, type:str, notnull:int, dflt_value:?, pk:int]
+			if (isset($col->name))
 				$r[] = $col->name;
-			} elseif (1 === $dbtype) {
-				// MySQL?
-				// $col[Field:str, Type:str, Null("YES","NO"), Key("PRI",""), Default, Extra("", "auto_increment")]
+			elseif (isset($col->Field))
 				$r[] = $col->Field;
-			}
 		}
 		return $r;
 	}
 	public static function Drop() {
 		$tInfo = self::tt(); // dbtype=0, dbindex=1, tablename=2, tableKey=3, tableCols=4
-		return DBT::Query($tInfo[1], "DROP TABLE IF EXISTS " . self::tt()[2]);
+		$pst = DBT::Query($tInfo[1], "DROP TABLE IF EXISTS " . self::tt()[2]);
+		self::TTDeleteMF();
+		return $pst;
 	}
 	// Returns id
 	public static function LastInsertId() {
@@ -123,8 +153,6 @@ class DBTTable {
 		if (null === $aFollowedBy) $aFollowedBy = "WHERE 1";
 		if (null === $aUPV) $aUPV = array();
 		if (null === $aFetchType) $aFetchType = 0;
-		if ($selDef == $aSelector)
-			$aSelector = "count(".implode(",", self::GetTableColumnNames()).") as c";
 		$tInfo = self::tt(); // dbtype=0, dbindex=1, tablename=2, tableKey=3, tableCols=4
 		$sql = "SELECT $aSelector from $tInfo[2] $aFollowedBy";
 		$pst = self::Execute($sql, $aUPV, $tInfo);
@@ -192,21 +220,27 @@ class DBTTable {
 		$tInfo = self::tt(); // dbtype=0, dbindex=1, tablename=2, tableKey=3, tableCols=4
 		$sql = "ALTER TABLE $tInfo[2] RENAME COLUMN $aColumn TO $aNewName";
 		// prepare
-		return self::Execute($sql, null, $tInfo);
+		$pst = self::Execute($sql, null, $tInfo);
+		self::TTUpdateMF($tInfo);
+		return $pst;
 	}
 	// Returns PDOStatement
 	public static function AddColumn($aColumn, $aDefinition) {
 		$tInfo = self::tt(); // dbtype=0, dbindex=1, tablename=2, tableKey=3, tableCols=4
 		$sql = "ALTER TABLE $tInfo[2] ADD COLUMN $aColumn $aDefinition";
 		// prepare
-		return self::Execute($sql, null, $tInfo);
+		$pst = self::Execute($sql, null, $tInfo);
+		self::TTUpdateMF($tInfo);
+		return $pst;
 	}
 	// Returns PDOStatement
 	public static function DropColumn($aColumn) {
 		$tInfo = self::tt(); // dbtype=0, dbindex=1, tablename=2, tableKey=3, tableCols=4
 		$sql = "ALTER TABLE $tInfo[2] DROP COLUMN $aColumn";
 		// prepare
-		return self::Execute($sql, null, $tInfo);
+		$pst = self::Execute($sql, null, $tInfo);
+		self::TTUpdateMF($tInfo);
+		return $pst;
 	}
 	// Returns SQL string
 	public static function Create($aDBIndex = 0, $aTableName = "test", array $aFields = array()) {
