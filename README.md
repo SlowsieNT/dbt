@@ -3,6 +3,7 @@
 Dynamic dbtools framework, easy to use, supports SQLite and MySQL.<br>
 ![Visitor count](https://shields-io-visitor-counter.herokuapp.com/badge?page=slowsient.dbt)<br>
 
+## Simple syntax!
 <details>
 <summary>Very simple usage (click this to expand)</summary>
 
