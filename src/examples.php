@@ -1,10 +1,11 @@
-<body bgcolor="#111" text="gray">
+<body bgcolor="0" text="gray">
 <?php
 require_once "inc/lib/DBTCore.php";
 
 class tbl_test0 extends DBTTable { static $DBIndex = 0, $Name = "test", $Key = "id"; }
 class tbl_test2 extends DBTTable { const qq = "0 test2sqlite id"; }
 class tbl_test1 extends DBTTable { const qq = "1 test id"; }
+
 
 $dbi  = DBT::NewSQLite("test.db");
 $dbi2 = DBT::NewMySQL("test", "root");
@@ -94,5 +95,21 @@ foreach (dbt::MakeClassesForTables(1, 1, true) as $code) {
 }
 echo "</pre>";
 
+
+if (GGet33("getparam1", $g1, "getparam2", $g2) && GFile33("a", $file1) && GPost33("b", $b, "c", $c)) {
+	echo "<pre>";
+	echo "g1=$g1;g2=$g2;";
+	print_r($file1);
+	echo "b=$b;c=$c;";
+	echo "</pre>";
+}
+
 ?>
-<body text="gray" bgcolor="#111">
+<div>
+<form action="?getparam1=getvalue1&getparam2=getvalue2" enctype="multipart/form-data" method="post">
+	<input type="file" name="a" id="">
+	<input type="text" name="b" value="b's value">
+	<input type="text" name="c" value="c's value">
+	<button>ok</button>
+</form>
+</div>
