@@ -21,7 +21,7 @@ copy(GenerateFunc(0, "Request_GPFSC_Get33", 0, function args(aArgsStr) {
 	return "$aType = 0, " + aArgsStr + "";
 }, function body(aArgsStr2) {
 	return "";
-}));
+}).a);
 
 // Create all getters
 var output = [];
