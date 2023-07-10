@@ -1,3 +1,5 @@
+// Were you expecting modern js?
+// Learn to expect nothing so you don't get disappointed ever again.
 function GenerateFunc(aType, aFName, aArgc, aFuncArgs, aFuncBody){
 	var fout = "function " + aFName;
 	if (!aArgc || aArgc < 1)
