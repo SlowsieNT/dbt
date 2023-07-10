@@ -26,6 +26,8 @@ copy(GenerateFunc(0, "Request_GPFSC_Get33", 0, function args(aArgsStr) {
 }).a);
 
 // Create all getters
+// Just don't forget to edit comment for $_FILE,
+// it should be $_FILES as comment, not an issue since it's comment
 var output = [];
 var types = "Get,Post,File,Session,Cookie".split(",");
 for (var i in types) {
