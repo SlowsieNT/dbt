@@ -1,14 +1,10 @@
 <?php
 class DBTTable {
-	// MF = meta file
-	private const TABLES_MF_DIR = "inc/db/tables";
-	private const TABLES_MF_SUFFIX = "_meta.json";
-	private const TABLES_MF_JSONFLAGS = 128;
 	static $RegisteredClasses = array();
-	// Never, ever use these:
+	// Don't assign these in this class:
 	static $DBIndex = 0, $Name = "", $Key = "id";
-	const qq = ",,";
-	// tt() returns array(dbtype=0, dbindex=1, tablename=2, tableKey=3, tableCols=4)
+	const qq = "";
+	// tt() returns array(dbtype=0, dbindex=1, tablename=2, tableKey=3, tableCols=4, tableCols2=5)
 	// Used to retrieve information of descending classes' table information
 	// Function tt() is used to auto-register the class
 	// thus tt() is required to be called almost everywhere!
@@ -16,35 +12,6 @@ class DBTTable {
 		self::TTRegister();
 		$CCName = get_called_class();
 		return self::$RegisteredClasses[$CCName];
-	}
-	public static function TTSetIdx($data, $aIdx, $aVal) {
-		$CCName = get_called_class();
-		// $data[dbtype=0, dbindex=1, tablename=2, tableKey=3, tableCols=4]
-		self::$RegisteredClasses[$CCName][$aIdx] = $aVal;
-	}
-	public static function TTGetMF(&$aCCName = null) {
-		if (null == $aCCName)
-			$aCCName = get_called_class();
-		if (!is_dir(self::TABLES_MF_DIR))
-			mkdir(self::TABLES_MF_DIR, 0777, 1);
-		return self::TABLES_MF_DIR . "/" . str_replace("\\", "-", $aCCName) . self::TABLES_MF_SUFFIX;
-	}
-	public static function TTDeleteMF(&$aCCName = null, &$aTbInfoFilename = null) {
-		if (null == $aCCName)
-			$aCCName = get_called_class();
-		if (null == $aTbInfoFilename)
-			$aTbInfoFilename = self::TTGetMF($aCCName);
-		unlink($aTbInfoFilename);
-	}
-	public static function TTUpdateMF(&$aTbInfo = null, &$aCCName = null, &$aTbInfoFilename = null) {
-		if (null == $aTbInfo)
-			$aTbInfo = self::tt();
-		if (null == $aCCName)
-			$aCCName = get_called_class();
-		if (null == $aTbInfoFilename)
-			$aTbInfoFilename = self::TTGetMF($aCCName);
-		$aTbInfo[4] = self::GetTableColumns(0, $aTbInfo);
-		file_put_contents($aTbInfoFilename, json_encode($aTbInfo, self::TABLES_MF_JSONFLAGS));
 	}
 	public static function TTRegister() {
 		$CCName = get_called_class();
@@ -60,37 +27,43 @@ class DBTTable {
 		}
 		$DBIndex = $eti[0];
 		$dbtype = DBT::D($DBIndex, 0);
-		// $data[dbtype=0, dbindex=1, tablename=2, tableKey=3, tableCols=4]
+		// $data[dbtype=0, dbindex=1, tablename=2, tableKey=3, tableCols=4, tableCols2=5]
 		$data = array($dbtype, $DBIndex, $eti[1], $eti[2], array());
 		// Assign table columns
-		$tInfoFilename = self::TTGetMF($CCName);
-		if (file_exists($tInfoFilename)) {
-			$f = json_decode(file_get_contents($tInfoFilename));
-			$data[4] = $f[4];
-		} else
-			self::TTUpdateMF($data, $CCName, $tInfoFilename);
-		self::$RegisteredClasses[$CCName] = $data;
+		self::ResolveColumns($dbtype, $DBIndex, $CCName, $data);
 	}
-	// Retrieve columns from database table, used for dynamic data handling
-	public static function GetTableColumns($aIgnoreArgs=1, array $aTInfo=array()) {
-		$tInfo = array();
-		if ($aIgnoreArgs)
-			$tInfo = self::tt(); // dbtype=0, dbindex=1, tablename=2, tableKey=3, tableCols=4
-		else {
-			if (!count($aTInfo))
-				die("GetTableColumns \$aTInfo is empty.");
-			$tInfo = $aTInfo;
+	static function ResolveColumns($aDBType, $aDBIndex, $aCCName, array $atInfo) {
+		// dbtype=0, dbindex=1, tablename=2, tableKey=3, tableCols=4, tableCols2=5
+		$atInfo[4] = DBT::GetTableInfo($aDBType, $aDBIndex, $atInfo[2]);
+		$atInfo[5] = array();
+		foreach ($atInfo[4] as $col) {
+			$cname = false;
+			if (isset($col->name))
+				$cname = $col->name;
+			elseif (isset($col->Field))
+				$cname = $col->Field;
+			if ($cname)
+				$atInfo[5][$cname] = $col;
 		}
-		return DBT::GetTableInfo($tInfo[0], $tInfo[1], $tInfo[2]);
+		self::$RegisteredClasses[$aCCName] = $atInfo;
+	}
+	// Should be called after altering columns
+	public static function UpdateColumns(&$aCCName = null, &$atInfo = null) {
+		if (null === $aCCName)
+			$aCCName = get_called_class();
+		if (null === $atInfo)
+			$atInfo = self::tt(); // dbtype=0, dbindex=1, tablename=2, tableKey=3, tableCols=4, tableCols2=5
+		self::$RegisteredClasses[$aCCName][4] = DBT::GetTableInfo($atInfo[0], $atInfo[1], $atInfo[2]);
+		self::ResolveColumns($atInfo[0], $atInfo[1], $aCCName, $atInfo);
 	}
 	// Returns array containing column names in database table.
-	public static function GetTableColumnNames(&$tInfo = null) {
-		if (null == $tInfo)
-			$tInfo = self::tt(); // dbtype=0, dbindex=1, tablename=2, tableKey=3, tableCols=4
+	public static function GetTableColumnNames(&$atInfo = null) {
+		if (null === $atInfo)
+			$atInfo = self::tt(); // dbtype=0, dbindex=1, tablename=2, tableKey=3, tableCols=4, tableCols2=5
 		$r = array();
-		$dbtype = $tInfo[0];
-		// print_r($tInfo);
-		foreach ($tInfo[4] as $col) {
+		$dbtype = $atInfo[0];
+		// print_r($atInfo);
+		foreach ($atInfo[4] as $col) {
 			if (isset($col->name))
 				$r[] = $col->name;
 			elseif (isset($col->Field))
@@ -98,20 +71,14 @@ class DBTTable {
 		}
 		return $r;
 	}
-	public static function Drop() {
-		$tInfo = self::tt(); // dbtype=0, dbindex=1, tablename=2, tableKey=3, tableCols=4
-		$pst = DBT::Query($tInfo[1], "DROP TABLE IF EXISTS " . self::tt()[2]);
-		self::TTDeleteMF();
-		return $pst;
-	}
 	// Returns id
 	public static function LastInsertId() {
-		$tInfo = self::tt(); // dbtype=0, dbindex=1, tablename=2, tableKey=3, tableCols=4
+		$tInfo = self::tt(); // dbtype=0, dbindex=1, tablename=2, tableKey=3, tableCols=4, tableCols2=5
 		return DBT::LastInsertId($tInfo[1], $tInfo[2]);
 	}
 	// Returns affected rowCount
 	public static function Delete($aFollowedBy = "WHERE 1", array $aUPV = array()) {
-		$tInfo = self::tt(); // dbtype=0, dbindex=1, tablename=2, tableKey=3, tableCols=4
+		$tInfo = self::tt(); // dbtype=0, dbindex=1, tablename=2, tableKey=3, tableCols=4, tableCols2=5
 		// $aUPV means: array of unprotected values
 		$sql = "DELETE FROM $tInfo[2] $aFollowedBy";
 		return self::Execute($sql, $aUPV, $tInfo)->rowCount();
@@ -132,7 +99,7 @@ class DBTTable {
 		if (null === $aUPV) $aUPV = array();
 		if (null === $aFetchType) $aFetchType = 0;
 		if (null === $aFetchMode) $aFetchMode = PDO::FETCH_OBJ;
-		$tInfo = self::tt(); // dbtype=0, dbindex=1, tablename=2, tableKey=3, tableCols=4
+		$tInfo = self::tt(); // dbtype=0, dbindex=1, tablename=2, tableKey=3, tableCols=4, tableCols2=5
 		if ("*" == $aSelector)
 			$aSelector = implode(",", self::GetTableColumnNames());
 		$sql = "SELECT $aSelector from $tInfo[2] $aFollowedBy";
@@ -153,7 +120,7 @@ class DBTTable {
 		if (null === $aFollowedBy) $aFollowedBy = "WHERE 1";
 		if (null === $aUPV) $aUPV = array();
 		if (null === $aFetchType) $aFetchType = 0;
-		$tInfo = self::tt(); // dbtype=0, dbindex=1, tablename=2, tableKey=3, tableCols=4
+		$tInfo = self::tt(); // dbtype=0, dbindex=1, tablename=2, tableKey=3, tableCols=4, tableCols2=5
 		$sql = "SELECT $aSelector from $tInfo[2] $aFollowedBy";
 		$pst = self::Execute($sql, $aUPV, $tInfo);
 		$obj = $pst->fetch(PDO::FETCH_OBJ);
@@ -163,7 +130,7 @@ class DBTTable {
 	}
 	// Returns last id, or PDOStatement
 	public static function Insert(array $aArray, $aIgnoreInto=true, $aNoRetPst=true) {
-		$tInfo = self::tt(); // dbtype=0, dbindex=1, tablename=2, tableKey=3, tableCols=4
+		$tInfo = self::tt(); // dbtype=0, dbindex=1, tablename=2, tableKey=3, tableCols=4, tableCols2=5
 		$oi = "";
 		$dbtype = $tInfo[0];
 		$tcols = self::GetTableColumnNames();
@@ -193,7 +160,7 @@ class DBTTable {
 	}
 	// Returns affected rowCount
 	public static function Update(array $aArray, $aUPV = array(), string $aFollowedBy = "where 1") {
-		$tInfo = self::tt(); // dbtype=0, dbindex=1, tablename=2, tableKey=3, tableCols=4
+		$tInfo = self::tt(); // dbtype=0, dbindex=1, tablename=2, tableKey=3, tableCols=4, tableCols2=5
 		$tcols = self::GetTableColumnNames();
 		$qs = array();
 		$vvals = array();
@@ -215,33 +182,6 @@ class DBTTable {
 		$pst = self::Execute($sql, $vvals, $tInfo);
 		return $pst->rowCount();
 	}
-	// Returns PDOStatement
-	public static function RenameColumn_SQLite($aColumn, $aNewName) {
-		$tInfo = self::tt(); // dbtype=0, dbindex=1, tablename=2, tableKey=3, tableCols=4
-		$sql = "ALTER TABLE $tInfo[2] RENAME COLUMN $aColumn TO $aNewName";
-		// prepare
-		$pst = self::Execute($sql, null, $tInfo);
-		self::TTUpdateMF($tInfo);
-		return $pst;
-	}
-	// Returns PDOStatement
-	public static function AddColumn($aColumn, $aDefinition) {
-		$tInfo = self::tt(); // dbtype=0, dbindex=1, tablename=2, tableKey=3, tableCols=4
-		$sql = "ALTER TABLE $tInfo[2] ADD COLUMN $aColumn $aDefinition";
-		// prepare
-		$pst = self::Execute($sql, null, $tInfo);
-		self::TTUpdateMF($tInfo);
-		return $pst;
-	}
-	// Returns PDOStatement
-	public static function DropColumn($aColumn) {
-		$tInfo = self::tt(); // dbtype=0, dbindex=1, tablename=2, tableKey=3, tableCols=4
-		$sql = "ALTER TABLE $tInfo[2] DROP COLUMN $aColumn";
-		// prepare
-		$pst = self::Execute($sql, null, $tInfo);
-		self::TTUpdateMF($tInfo);
-		return $pst;
-	}
 	// Returns SQL string
 	public static function Create($aDBIndex = 0, $aTableName = "test", array $aFields = array()) {
 		$strFields = "
@@ -257,10 +197,89 @@ class DBTTable {
 		// query
 		return DBT::Query($aDBIndex, $sql);
 	}
+	// Retrieve column information
+	public static function GetCDef($aColumnName, &$atInfo = null) {
+		if (null === $atInfo)
+			$atInfo = self::tt(); // dbtype=0, dbindex=1, tablename=2, tableKey=3, tableCols=4, tableCols2=5
+		if (!isset($atInfo[5][$aColumnName]))
+			return false;
+		$cdef = $atInfo[5][$aColumnName];
+		$ret = array();
+		if (isset($cdef->Field)) $ret["name"] = $cdef->Field;
+		else if (isset($cdef->name)) $ret["name"] = $cdef->name;
+		// primary key?
+		if (isset($cdef->Key)) $ret["pk"] = intval("PRI"==$cdef->Key);
+		else if (isset($cdef->pk)) $ret["pk"] = $cdef->pk;
+		// column type?
+		if (isset($cdef->Type)) $ret["type"] = $cdef->Type;
+		else if (isset($cdef->type)) $ret["type"] = $cdef->type;
+		// not null?
+		if (isset($cdef->Null)) $ret["notnull"] = intval("NO" == $cdef->Null);
+		else if (isset($cdef->notnull)) $ret["notnull"] = $cdef->notnull;
+		// default value?
+		if (isset($cdef->Default)) $ret["default"] = $cdef->Default;
+		else if (isset($cdef->dflt_value)) $ret["default"] = $cdef->dflt_value;
+		else $ret["default"] = "";
+		return (object)$ret;
+	}
+	// Experimental
+	// Can be used to rename, usually works for MySQL
+	// It will execute regardless if $aDefinition is null
+	// Returns PDOStatement
+	public static function ChangeCDef($aColumnName, $aNewName, $aDefinition=null) {
+		$tInfo = self::tt(); // dbtype=0, dbindex=1, tablename=2, tableKey=3, tableCols=4, tableCols2=5
+		if (null === $aDefinition) {
+			$cdef = self::GetCDef($aColumnName, $tInfo);
+			if (false === $cdef) return false;
+			$aDefinition = $cdef->type;
+		}
+		$sql = "ALTER TABLE $tInfo[2] CHANGE `$aColumnName` `$aNewName` $aDefinition";
+		// prepare
+		$pst = self::Execute($sql, null, $tInfo);
+		self::UpdateColumns();
+		return $pst;
+	}
+	// This may also work on MySQL8+
+	// Returns PDOStatement
+	public static function RenameColumn_SQLite($aColumn, $aNewName) {
+		$tInfo = self::tt(); // dbtype=0, dbindex=1, tablename=2, tableKey=3, tableCols=4, tableCols2=5
+		$sql = "ALTER TABLE $tInfo[2] RENAME COLUMN $aColumn TO $aNewName";
+		// prepare
+		$pst = self::Execute($sql, null, $tInfo);
+		self::UpdateColumns();
+		return $pst;
+	}
+	// Returns PDOStatement
+	public static function AddColumn($aColumn, $aDefinition) {
+		$tInfo = self::tt(); // dbtype=0, dbindex=1, tablename=2, tableKey=3, tableCols=4, tableCols2=5
+		$sql = "ALTER TABLE $tInfo[2] ADD COLUMN $aColumn $aDefinition";
+		// prepare
+		$pst = self::Execute($sql, null, $tInfo);
+		self::UpdateColumns();
+		return $pst;
+	}
+	// $aColumn is case sensitive
+	// Returns PDOStatement, or false if not found
+	public static function DropColumn($aColumn) {
+		$tInfo = self::tt(); // dbtype=0, dbindex=1, tablename=2, tableKey=3, tableCols=4, tableCols2=5
+		if (false === self::GetCDef($aColumn))
+			return false;
+		$sql = "ALTER TABLE $tInfo[2] DROP COLUMN $aColumn";
+		// prepare
+		$pst = self::Execute($sql, null, $tInfo);
+		self::UpdateColumns();
+		return $pst;
+	}
+	// Returns PDOStatement
+	public static function Drop() {
+		$tInfo = self::tt(); // dbtype=0, dbindex=1, tablename=2, tableKey=3, tableCols=4, tableCols2=5
+		$pst = DBT::Query($tInfo[1], "DROP TABLE IF EXISTS " . self::tt()[2]);
+		return $pst;
+	}
 	// -------------- Extensions --------------
 	// Returns object, or false
 	public static function GetByKey($aValue, int $aFetchType=1) {
-		$tInfo = self::tt(); // dbtype=0, dbindex=1, tablename=2, tableKey=3, tableCols=4
+		$tInfo = self::tt(); // dbtype=0, dbindex=1, tablename=2, tableKey=3, tableCols=4, tableCols2=5
 		return self::Select("*", "where $tInfo[3]=?", array($aValue), $aFetchType);
 	}
 	// Returns last id, or PDOStatement

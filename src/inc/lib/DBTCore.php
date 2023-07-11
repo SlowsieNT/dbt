@@ -71,7 +71,19 @@ class DBT {
 		$dbtype = $aDBType;
 		if (0 !== $dbtype)
 			$sql = "DESCRIBE $aTableName";
+		// echo "$sql\r\n";
 		return DBT::Query($aIndex, $sql)->FetchAll($aFetchMode);
+	}
+	public static function GetTableColumnNames($aDBType, $aIndex, $aTableName) {
+		$ti = self::GetTableInfo($aDBType, $aIndex, $aTableName);
+		$r = array();
+		foreach ($ti as $col) {
+			if (isset($col->name))
+				$r[] = $col->name;
+			elseif (isset($col->Field))
+				$r[] = $col->Field;
+		}
+		return $r;
 	}
 	public static function GetAttribute(int $aIndex, int $aAttribute){ return self::D($aIndex)->getAttribute($aAttribute); }
 	public static function SetAttribute(int $aIndex, int $aAttribute, $aValue){ return self::D($aIndex)->setAttribute($aAttribute, $aValue); }
