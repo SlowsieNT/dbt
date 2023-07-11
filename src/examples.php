@@ -2,7 +2,7 @@
 <?php
 require_once "inc/lib/DBTCore.php";
 
-class tbl_test0 extends DBTTable { static $DBIndex = 0, $Name = "test", $Key = "id"; }
+class tbl_test0 extends DBTTable { static $DBIndex = 0, $Name = "test3", $Key = "id"; }
 class tbl_test2 extends DBTTable { const qq = "0 test2sqlite id"; }
 class tbl_test1 extends DBTTable { const qq = "1 test id"; }
 
@@ -11,15 +11,16 @@ $dbi  = DBT::NewSQLite("test.db");
 $dbi2 = DBT::NewMySQL("test", "root");
 
 // Drop 'em!
-tbl_test0::Drop();
-tbl_test1::Drop();
-tbl_test2::Drop();
+#tbl_test0::Drop();
+#tbl_test1::Drop();
+#tbl_test2::Drop();
 
 // Make ANEW!!
-DBTTable::Create($dbi, "test", array(
+DBTTable::Create($dbi, "test3", array(
 	"id integer primary key autoincrement",
 	"title TEXT",
 	"content MEDIUMTEXT",
+	//"id integer unique",
 	"image MEDIUMBLOB",
 	"pdate DOUBLE",
 ));
@@ -40,26 +41,29 @@ DBTTable::Create($dbi2, "test", array(
 tbl_test0::Delete();
 tbl_test1::Delete();
 
+// Do 'em column management
+tbl_test0::DropColumn("yo1");
+tbl_test0::DropColumn("yo2");
+tbl_test0::AddColumn("yo1", "int");
+tbl_test0::RenameColumn_SQLite("yo1", "yo2");
+
+
 // insert 'em VALUES by DB table column order
-tbl_test0::InsertV(array( 1, 2, 3, microtime(1) ));
-tbl_test0::InsertV(array( 2, 2, 3, microtime(1) ));
+tbl_test0::InsertV(array( 1, 2, 3, 1+microtime(1) ));
+tbl_test0::InsertV(array( 2, 2, 3, 2+microtime(1) ));
+tbl_test0::InsertV(array( 3, 2, 3, 3+microtime(1) ));
 // now - another!
-tbl_test1::InsertV(array( 3, 3, 4, microtime(1) ));
-tbl_test1::InsertV(array( 4, 3, 4, microtime(1) ));
+tbl_test1::InsertV(array( 4, 3, 4, 1+microtime(1) ));
+tbl_test1::InsertV(array( 5, 3, 4, 2+microtime(1) ));
+tbl_test1::InsertV(array( 6, 3, 4, 3+microtime(1) ));
 
 // Update 'em!
 tbl_test0::UpdateV(array( null, DBT::RandHex(5) ), 3, "where image=?");
 tbl_test1::UpdateV(array( null, DBT::RandHex(5) ), 4, "where image=?");
 
-// Do 'em column management
-tbl_test0::AddColumn("yo", "int");
-tbl_test0::AddColumn("yo1", "int");
-tbl_test0::RenameColumn_SQLite("yo1", "yo2");
-tbl_test0::DropColumn("yo");
-
 // Select 'em!
-//print_r(tbl_test0::Select());
-//print_r(tbl_test1::Select());
+print_r(tbl_test0::Select());
+print_r(tbl_test1::Select());
 
 // Select 'em counts!
 var_dump(tbl_test0::SelectC());
@@ -96,6 +100,17 @@ foreach (dbt::MakeClassesForTables(1, 1, true) as $code) {
 echo "</pre>";
 
 
+// old way:
+if (isset($_GET["getparam1"])) {
+	$g1 = $_GET["getparam1"];
+	echo $g1;
+}
+
+// dbt's way:
+if (GGet33("getparam1", $g1)) {
+	echo $g1;
+}
+
 if (GGet33("getparam1", $g1, "getparam2", $g2) && GFile33("a", $file1) && GPost33("b", $b, "c", $c)) {
 	echo "<pre>";
 	echo "g1=$g1;g2=$g2;";
@@ -105,6 +120,9 @@ if (GGet33("getparam1", $g1, "getparam2", $g2) && GFile33("a", $file1) && GPost3
 }
 
 ?>
+<script>
+
+</script>
 <div>
 <form action="?getparam1=getvalue1&getparam2=getvalue2" enctype="multipart/form-data" method="post">
 	<input type="file" name="a" id="">
