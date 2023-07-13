@@ -3,7 +3,7 @@
 require_once "inc/lib/DBTCore.php";
 
 class tbl_test0 extends DBTTable { static $DBIndex = 0, $Name = "test3", $Key = "id"; }
-class tbl_test2 extends DBTTable { const qq = "0 test2sqlite id"; }
+class tbl_test2 extends DBTTable { const qq = "0 test2 id"; }
 class tbl_test1 extends DBTTable { const qq = "1 test id"; }
 
 
@@ -24,21 +24,42 @@ DBTTable::Create($dbi, "test3", array(
 	"image MEDIUMBLOB",
 	"pdate DOUBLE",
 ));
-DBTTable::Create($dbi, "test2sqlite", array(
+DBTTable::Create($dbi, "test2", array(
+	"id integer primary key autoincrement",
+	"id2 TEXT unique",
 	"title TEXT",
 	"content MEDIUMTEXT",
 	"image MEDIUMBLOB",
 	"pdate DOUBLE",
 ));
 DBTTable::Create($dbi2, "test", array(
+	"id TEXT unique",
 	"title TEXT",
 	"content MEDIUMTEXT",
 	"image MEDIUMBLOB",
 	"pdate DOUBLE",
 ));
 
+echo "-------- Uniqueing SQLite --------<br>\r\n";
+$col = "id2";
+$ii = tbl_test2::IsUnique($col);
+print_r(tbl_test2::GetUniques());
+echo "col=$col,unique=".intval($ii)."<bR>\r\n";
+
+echo "-------- Uniqueing MySQL --------<br>\r\n";
+$col = "id";
+$ii = tbl_test1::IsUnique($col);
+print_r(tbl_test1::GetUniques());
+echo "col=$col,unique=".intval($ii)."<bR>\r\n";
+
+echo "-------- Column Definitions --------<br>\r\n";
+print_r(tbl_test1::GetCDef("id"));
+print_r(tbl_test2::GetCDef("id"));
+echo "-------- Etc --------<br>\r\n";
+
 // Delete 'em!
 tbl_test0::Delete();
+tbl_test2::Delete();
 tbl_test1::Delete();
 
 // Do 'em column management
@@ -62,10 +83,12 @@ tbl_test0::UpdateV(array( null, DBT::RandHex(5) ), 3, "where image=?");
 tbl_test1::UpdateV(array( null, DBT::RandHex(5) ), 4, "where image=?");
 
 // Select 'em!
+echo "-------- Select-ing --------<br>\r\n";
 print_r(tbl_test0::Select());
 print_r(tbl_test1::Select());
 
 // Select 'em counts!
+echo "-------- Select-ing count --------<br>\r\n";
 var_dump(tbl_test0::SelectC());
 var_dump(tbl_test1::SelectC());
 
