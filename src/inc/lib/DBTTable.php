@@ -197,7 +197,76 @@ class DBTTable {
 		// query
 		return DBT::Query($aDBIndex, $sql);
 	}
+	// etc
+	public static function GetUniques(&$atInfo = null) {
+		if (null === $atInfo)
+			$atInfo = self::tt(); // dbtype=0, dbindex=1, tablename=2, tableKey=3, tableCols=4, tableCols2=5
+		// mysqling
+		if (1 === $atInfo[0]) {
+			$sql = "SHOW INDEXES
+			FROM $atInfo[2]
+			WHERE NOT Non_unique";
+			$pst = self::Execute($sql, null, $atInfo);
+			foreach ($pst->fetchall(PDO::FETCH_OBJ) as $obj) {
+				// Column_name, Non_unique
+				$ret[] = array((int)(0 === $obj->Non_unique), $obj->Column_name);
+			}
+			return $ret;
+		}
+		// etc
+		$ret = array();
+		// gen sql
+		$sql = "pragma index_list(\"$atInfo[2]\");";
+		// prepare
+		$pst = self::Execute($sql, array(), $atInfo);
+		// loop thru all
+		foreach ($pst->fetchall(PDO::FETCH_OBJ) as $obj) {
+			if (1 === $obj->unique) {
+				// $obj->name
+				$sql = "pragma index_info(\"".$obj->name."\");";
+				// prepare
+				$pst = self::Execute($sql, array(), $atInfo);
+				$obj2 = $pst->fetch(PDO::FETCH_OBJ);
+				$ret[] = array(
+					$obj->unique,
+					$obj2->name
+				);
+			}
+		}
+		return $ret;
+	}
+	// Returns true if unique
+	public static function IsUnique($aColumnName, &$atInfo = null) {
+		if (null === $atInfo)
+			$atInfo = self::tt(); // dbtype=0, dbindex=1, tablename=2, tableKey=3, tableCols=4, tableCols2=5
+		// MySQL
+		if (1 === $atInfo[0]) {
+			$sql = "SHOW INDEXES
+			FROM $atInfo[2]
+			WHERE Column_name='$aColumnName'
+			AND NOT Non_unique";
+			$pst = self::Execute($sql, null, $atInfo);
+			return false !== $pst->fetchall();
+		}
+		// gen sql
+		$sql = "pragma index_list(\"$atInfo[2]\");";
+		// prepare
+		$pst = self::Execute($sql, null, $atInfo);
+		// loop thru all
+		foreach ($pst->fetchall(PDO::FETCH_OBJ) as $obj) {
+			if (1 === $obj->unique) {
+				$sql = "pragma index_info(\"".$obj->name."\");";
+				// prepare
+				$pst = self::Execute($sql, null, $atInfo);
+				$obj2 = $pst->fetch(PDO::FETCH_OBJ);
+				if ($obj2->name === $aColumnName)
+					return true;
+			}
+		}
+		return false;
+	}
 	// Retrieve column information
+	// returns object<name, pk, uniq, type, notnull, default>
 	public static function GetCDef($aColumnName, &$atInfo = null) {
 		if (null === $atInfo)
 			$atInfo = self::tt(); // dbtype=0, dbindex=1, tablename=2, tableKey=3, tableCols=4, tableCols2=5
@@ -205,11 +274,14 @@ class DBTTable {
 			return false;
 		$cdef = $atInfo[5][$aColumnName];
 		$ret = array();
+		// name?
 		if (isset($cdef->Field)) $ret["name"] = $cdef->Field;
 		else if (isset($cdef->name)) $ret["name"] = $cdef->name;
 		// primary key?
 		if (isset($cdef->Key)) $ret["pk"] = intval("PRI"==$cdef->Key);
 		else if (isset($cdef->pk)) $ret["pk"] = $cdef->pk;
+		// unique?
+		$ret["uniq"] = (int)self::IsUnique($ret["name"]);
 		// column type?
 		if (isset($cdef->Type)) $ret["type"] = $cdef->Type;
 		else if (isset($cdef->type)) $ret["type"] = $cdef->type;
@@ -319,6 +391,5 @@ class DBTTable {
 				$vals[$cols[$i]] = $aValues[$i];
 		return self::Update($vals, $aUPV, $aFollowedBy);
 	}
-	
 }
 ?>
