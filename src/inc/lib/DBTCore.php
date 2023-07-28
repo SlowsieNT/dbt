@@ -3,7 +3,6 @@ require_once "DBTUtils.php";
 require_once "DBTMime.php"; // DBTMime is not necessary for now.
 require_once "DBTBaseConv.php";
 require_once "DBTTable.php";
-require_once "ReqHelpers.php";
 class DBT {
 	public static $m_DBs = array();
 	// Returns int
